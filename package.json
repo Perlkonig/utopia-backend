@@ -6,8 +6,8 @@
     "type": "git",
     "url": "Perlkonig/utopia-backend"
   },
-  "main": "build/Game.js",
-  "types": "build/Game.d.ts",
+  "main": "build/index.js",
+  "types": "build/index.d.ts",
   "scripts": {
     "build": "npm run build-ts && npm run tslint",
     "build-ts": "tsc",
@@ -41,6 +41,7 @@
     "webpack-cli": "^3.3.12"
   },
   "dependencies": {
-    "replayable-random": "^0.4.1"
+    "replayable-random": "^0.4.1",
+    "xstate": "^4.11.0"
   }
 }

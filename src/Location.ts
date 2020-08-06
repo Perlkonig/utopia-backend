@@ -232,3 +232,4 @@ export function findLocationByArtifact(search: string): Location | null {
     return null;
 }
 
+export const locationIDs: number[] = Locations.map((x) => x.id);

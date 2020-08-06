@@ -12,4 +12,8 @@ export interface ActivateState extends BaseState {
     X?: number;
     Y?: number;
     Z?: number;
+    r1?: number;
+    r2?: number;
+    r3?: number;
+    r4?: number;
 }

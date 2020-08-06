@@ -3,20 +3,16 @@ import { FightState } from './Fight';
 import { ActivateState } from './Activate';
 import { LinkState } from './Link';
 
-export interface BaseState {
-    interrupts: string[];
-    statuses: string[];
-    ignored?: string[];
-    die1?: number;
-    die2?: number;
+export interface Resolution {
+    name: string,
+    resolution: boolean | number;
 }
 
-export enum GameState {
-    IDLE = 0,
-    SEARCHING,
-    FIGHTING,
-    ACTIVATING,
-    LINKING
+export interface BaseState {
+    interrupts: string[];
+    statuses: Resolution[];
+    die1?: number;
+    die2?: number;
 }
 
 export { SearchState, FightState, ActivateState, LinkState };
