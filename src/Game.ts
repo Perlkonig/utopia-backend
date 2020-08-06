@@ -1,5 +1,6 @@
 import { uhe } from "replayable-random";
 import { distrib } from "replayable-random";
+import { immerable } from "immer";
 
 // import { findLocationByArtifact, Location } from "./Location";
 // import { HitRanges } from "./Encounter";
@@ -18,6 +19,7 @@ function genRandomSeed() {
 }
 
 export class Game {
+    [immerable] = true;
     readonly seedStart: string;
     seedCurrent: string;
     scratch?: ActivateState | FightState | SearchState | LinkState;
