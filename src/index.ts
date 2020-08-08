@@ -1,10 +1,11 @@
-import { Machine, interpret } from "xstate";
+import { Machine } from "xstate";
 import { assign } from '@xstate/immer';
+import { uhe } from "replayable-random";
 
 import { Game } from "./Game";
 import { Errors, InvalidArgumentsError } from "./Error";
 import { locationIDs } from "./Location";
-import { Resolution, SearchState } from './States';
+import { Resolution, SearchState, ActivateState, LinkState } from './States';
 
 interface StateSchema {
     states: {
@@ -15,6 +16,7 @@ interface StateSchema {
                 interruptingSetup: {};
                 assigning: {
                     states: {
+                        rolling: {};
                         waiting: {};
                         processing: {};
                     };
@@ -31,26 +33,28 @@ interface StateSchema {
     };
 }
 
-type SearchEvent = { type: "SEARCH"; location: number };
-type ResolveEvent = { type: "RESOLVE"; resolutions: Resolution[] };
+type SearchEvent = { type: "SEARCH", location: number };
+type ResolveEvent = { type: "RESOLVE", resolutions: Resolution[] };
+type AssignEvent = { type: "ASSIGN", value: number, location: string };
 
 export type Events =
     | SearchEvent
     | ResolveEvent
-    | { type: "ASSIGN"; dice: string[] }
+    | AssignEvent
     | { type: "AGAIN" };
 
 const setSearchStage = assign<Game, Events>((context, event) => {
     event = event as SearchEvent;
-    if (locationIDs.indexOf(event.location) >= -1) {
+    if (locationIDs.indexOf(event.location) >= 0) {
         context.location = event.location
     } else {
-        throw new InvalidArgumentsError(Errors.INVALID_LOCATION);
+        throw new InvalidArgumentsError(Errors.LOCATION_INVALID);
     }
     const localstate = {
         interrupts: [],
         statuses: [],
         trackerpos: 0,
+        locations: [null,null,null,null,null,null,null,null]
     } as SearchState;
     const art = context.pc.fetchArtifact("Seal of Balance");
     if ( (art !== undefined) && (art.active) && (!art.used) ) {
@@ -61,20 +65,76 @@ const setSearchStage = assign<Game, Events>((context, event) => {
 
 const resolveInterrupt = assign<Game, Events>((context, event) => {
     event = event as ResolveEvent;
+    if (event.resolutions === undefined) {
+        throw new InvalidArgumentsError(Errors.RESOLUTION_INVALID);
+    }
     if (context.scratch === undefined) {
-        throw new Error("Machine is in an invalid state. Dice field is not properly initialized. This should never happen.");
+        throw new Error("Machine is in an invalid state. Dice field is not properly initialized.");
     }
     const pad = context.scratch as SearchState;
     for (const x of event.resolutions) {
+        if (x.name === undefined) {
+            throw new InvalidArgumentsError(Errors.RESOLUTION_INVALID);
+        }
         const idx = pad.interrupts.indexOf(x.name);
         if (idx >= 0) {
-            if ( (typeof x.resolution === "boolean") && (x.resolution === false) ) {
-                pad.interrupts.splice(idx, 1);
-            } else {
+            if (x.resolution === undefined) {
+                throw new InvalidArgumentsError(Errors.RESOLUTION_INVALID);
+            }
+            if ( (typeof x.resolution !== "boolean") || (x.resolution !== false) ) {
                 pad.statuses.push(x);
             }
+            pad.interrupts.splice(idx, 1);
         }
     }
+});
+
+const rollDice = assign<Game, Events>((context, event) => {
+    // Hydrate randomizer
+    const g = uhe.mutFromPlain(JSON.parse(context.seedCurrent))
+    if (g === undefined) {
+        throw new Error("Error rehydrating the randomizer.")
+    }
+
+    // Generate and save dice rolls
+    if (context.scratch === undefined) {
+        throw new Error("The dice field was not properly initialized.");
+    }
+    if ( (context.scratch.die1 !== undefined) || (context.scratch.die2 !== undefined) ) {
+        throw new Error("Invalid state. There are still dice to assign.");
+    }
+    context.scratch.die1 = context.f(g);
+    context.scratch.die2 = context.f(g);
+
+    // Serialize randomizer
+    context.seedCurrent = JSON.stringify(g);
+});
+
+const assignDie = assign<Game, Events>((context, event) => {
+    event = event as AssignEvent;
+    if ( (event.value === undefined) || (event.location === undefined) ) {
+        throw new InvalidArgumentsError(Errors.ASSIGNMENT_MALFORMED);
+    }
+    if (context.scratch === undefined) {
+        throw new Error("Machine is in an invalid state. Dice field is not properly initialized.");
+    }
+    const pad = context.scratch as SearchState | ActivateState | LinkState;
+    // First look for die
+    if (pad.die1 === event.value) {
+        pad.die1 = undefined;
+    } else if (pad.die2 === event.value) {
+        pad.die2 = undefined;
+    } else {
+        throw new InvalidArgumentsError(Errors.ASSIGNMENT_DIE_INVALID);
+    }
+    // Then check location
+    const labels = ['A', 'B', 'C', 'D', 'W', 'X', 'Y', 'Z'];
+    const idx = labels.indexOf(event.location);
+    if (idx < 0) {
+        throw new InvalidArgumentsError(Errors.ASSIGNMENT_LOCATION_INVALID);
+    }
+    // Assign
+    pad.locations[idx] = event.value;
 });
 
 export const ueMachine = Machine<Game, StateSchema, Events>(
@@ -91,12 +151,7 @@ export const ueMachine = Machine<Game, StateSchema, Events>(
             idle: {
                 on: {
                     SEARCH: "searching"
-                    // {
-                    //     target: "searching",
-                    //     actions: ["setSearchStage"]
-                    // }
                 }
-
             },
             searching: {
                 initial: "settingup",
@@ -121,37 +176,38 @@ export const ueMachine = Machine<Game, StateSchema, Events>(
                         }
                     },
                     assigning: {
-                        initial: "waiting",
-                        entry: ["rollDice"],
+                        initial: "rolling",
                         states: {
+                            rolling: {
+                                entry: [rollDice],
+                                always: ["waiting"],
+                            },
                             waiting: {
                                 on: {
                                     ASSIGN: "processing"
                                 }
                             },
                             processing: {
-                                entry: ["assignDice"],
+                                entry: [assignDie],
                                 always: [
                                     {
-                                        target: "..resolving",
-                                        cond: "searchFull"
-                                    },
-                                    {
-                                        target: "..assigning",
-                                        cond: "stillDice",
+                                        target: "#resolvingSearch",
+                                        cond: "searchFull",
                                         internal: true
                                     },
                                     {
-                                        target: "..assigning",
-                                        cond: "needDice",
-                                        internal: false
+                                        target: "waiting",
+                                        cond: "stillDice",
+                                    },
+                                    {
+                                        target: "rolling",
                                     }
                                 ]
                             }
                         }
                     },
                     resolving: {
-
+                        id: "resolvingSearch",
                     },
                     fighting: {
 
@@ -181,17 +237,6 @@ export const ueMachine = Machine<Game, StateSchema, Events>(
         }
     },
     {
-        actions: {
-            leaveArea: (context, event) => {
-                return;
-            },
-            rollDice: (context, event) => {
-                return;
-            },
-            assignDice: (context, event) => {
-                return;
-            }
-        },
         guards: {
             checkEOG: (context, event) => {
                 if ( (context.pc.hp < 0) || (context.ueActive) ) {
@@ -201,27 +246,52 @@ export const ueMachine = Machine<Game, StateSchema, Events>(
             },
             interruptsResolved: (context, event) => {
                 if (context.scratch === undefined) {
-                    throw new Error("Machine is in an invalid state. Dice field is not properly initialized. This should never happen.");
+                    throw new Error("Machine is in an invalid state. Dice field is not properly initialized.");
                 }
                 return (context.scratch.interrupts.length === 0);
             },
             searchFull: (context, event) => {
-                return false;
+                if (context.scratch === undefined) {
+                    throw new Error("Machine is in an invalid state. Dice field is not properly initialized.");
+                }
+                return (
+                    (context.scratch.locations[0] !== null) &&
+                    (context.scratch.locations[1] !== null) &&
+                    (context.scratch.locations[2] !== null) &&
+                    (context.scratch.locations[5] !== null) &&
+                    (context.scratch.locations[6] !== null) &&
+                    (context.scratch.locations[7] !== null)
+                );
             },
             stillDice: (context, event) =>  {
-                return false;
-            },
-            needDice: (context, event) => {
+                if (context.scratch === undefined) {
+                    throw new Error("Machine is in an invalid state. Dice field is not properly initialized.");
+                }
+                if ( (context.scratch.die1 !== undefined) || (context.scratch.die2 !== undefined) ) {
+                    return true;
+                }
                 return false;
             }
         }
     }
 );
 
-const c = new Game();
-c.pc.artifacts.push({name: "Seal of Balance", active: true, used: false});
-// tslint:disable-next-line: no-console
-const ueService = interpret(ueMachine.withContext(c)).onTransition(state => console.log(state.value));
-ueService.start();
-ueService.send("SEARCH");
-ueService.send("RESOLVE", {resolutions: [{name: "Seal of Balance", resolution: false}]})
+export type NestedState = { [key: string]: string | NestedState }
+
+export function collapseState(state: NestedState): string {
+    if (typeof state === "string") {
+        return state;
+    } else {
+        if (Object.keys(state).length !== 1) {
+            throw new Error("Invalid state passed");
+        } else {
+            const key = Object.keys(state)[0];
+            const val = state[key] as NestedState;
+            if (typeof val === "string") {
+                return key + '.' + val;
+            } else {
+                return key + '.' + collapseState(val)
+            }
+        }
+    }
+}

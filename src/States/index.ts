@@ -11,6 +11,7 @@ export interface Resolution {
 export interface BaseState {
     interrupts: string[];
     statuses: Resolution[];
+    locations: (number | null)[];
     die1?: number;
     die2?: number;
 }

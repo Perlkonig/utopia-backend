@@ -6,7 +6,9 @@ Manages a game of [Utopia Engine (3rd ed.)](https://boardgamegeek.com/boardgame/
 
 ## Deploy
 
-This is a basic NPM module; it's just private. It's not meant to be generally useful to anyone outside of myself. If someone does use this elsewhere, let me know :)
+This is an unpublished NPM module.
+
+To develop:
 
 - Clone the repo.
 - From the newly created folder, run the following commands:
@@ -14,3 +16,8 @@ This is a basic NPM module; it's just private. It's not meant to be generally us
   - `npm run test` (makes sure everything is working)
   - `npm run build` (compiles the TypeScript files into the `./build` folder)
   - `npm run dist-dev` (or `dist-prod` if you want it minified; bundles everything for the browser into the `./dist` folder)
+
+To use (you want to write a front end for the game):
+
+- Install with the following form `git+https://github.com/Perlkonig/utopia-backend.git`
+- No API docs yet, but once it's finished, I will draft those up.

@@ -1,13 +1,18 @@
 export enum Errors {
-    INVALID_LOCATION,           // You tried to move to a location that doesn't exist
-    ASSIGNMENT_MALFORMED,       // The assignment string could not be interpreted
-    ASSIGNMENT_INVALID,         // The assignment string was well formed, but either the number didn't exist or the destination is already occupied
+    LOCATION_INVALID,           // You tried to move to a location that doesn't exist
+    RESOLUTION_INVALID,         // You tried to resolve an absent interrupt or did it in an invalid way
+    ASSIGNMENT_MALFORMED,       // Your assignment command was malformed
+    ASSIGNMENT_DIE_INVALID,     // You tried to assign a die value you didn't roll or that is already assigned
+    ASSIGNMENT_LOCATION_INVALID // You tried to assign a die to an invalid location
 }
 
 export class InvalidArgumentsError extends Error {
     code: Errors;
 
     constructor(code: Errors, message?: string) {
+        if (message === undefined) {
+            message = "Error code: " + code.toString();
+        }
         super(message);
         // see: typescriptlang.org/docs/handbook/release-notes/typescript-2-2.html
         Object.setPrototypeOf(this, new.target.prototype); // restore prototype chain
