@@ -67,8 +67,18 @@ export type Events =
 
 const setSearchStage = assign<Game, Events>((context, event) => {
     event = event as SearchEvent;
+    let tracker = 0;
     if (locationIDs.indexOf(event.location) >= 0) {
-        context.location = event.location
+        if (context.location === event.location) {
+            if (context.scratch === undefined) {
+                throw new Error("Machine is in an invalid state. Can't find the previous search.");
+            }
+            tracker = (context.scratch as SearchState).trackerpos;
+            context.log.push("You continue searching " + Locations[context.location].name);
+        } else {
+            context.location = event.location
+            context.log.push("You begin searching " + Locations[context.location].name);
+        }
     } else {
         throw new InvalidArgumentsError(Errors.LOCATION_INVALID);
     }
@@ -76,7 +86,7 @@ const setSearchStage = assign<Game, Events>((context, event) => {
         interrupts: [],
         statuses: [],
         ignored: [],
-        trackerpos: 0,
+        trackerpos: tracker,
         locations: [null,null,null,null,null,null,null,null]
     } as SearchState;
     const art = context.pc.fetchArtifact(GameConstants.SealOfBalance);
@@ -84,7 +94,6 @@ const setSearchStage = assign<Game, Events>((context, event) => {
         localstate.interrupts.push(GameConstants.SealOfBalance);
     }
     context.scratch = localstate;
-    context.log.push("You begin searching " + Locations[context.location].name);
     if (localstate.interrupts.length > 0) {
         context.log.push("Some interrupts need to be resolved:\n" + localstate.interrupts.join("\n"));
     }
@@ -120,10 +129,7 @@ const setFightStage = assign<Game, Events>((context, event) => {
     }
 
     const localstate = {
-        interrupts: [],
-        statuses: [],
-        ignored: [],
-        locations: [],
+        ...context.scratch as SearchState,
         encounter: Locations[context.location - 1].encounters[lvl-1],
         hitrange: HitRanges[lvl-1]
     } as FightState;
@@ -156,6 +162,7 @@ const setFightStage = assign<Game, Events>((context, event) => {
     // }
 
     context.scratch = localstate;
+    context.log.push("FIGHT!");
 });
 
 const resolveInterrupt = assign<Game, Events>((context, event) => {
@@ -593,23 +600,3 @@ export const ueMachine = Machine<Game, StateSchema, Events>(
         }
     }
 );
-
-export type NestedState = { [key: string]: string | NestedState }
-
-export function collapseState(state: NestedState): string {
-    if (typeof state === "string") {
-        return state;
-    } else {
-        if (Object.keys(state).length !== 1) {
-            throw new Error("Invalid state passed");
-        } else {
-            const key = Object.keys(state)[0];
-            const val = state[key] as NestedState;
-            if (typeof val === "string") {
-                return key + '.' + val;
-            } else {
-                return key + '.' + collapseState(val)
-            }
-        }
-    }
-}

@@ -25,6 +25,7 @@ export class Game {
     seedCurrent: string;
     scratch?: ActivateState | FightState | SearchState | LinkState;
     location: number | null;
+    lastLocation: number | null;
     pc: Character;
     godshand: number;
     clock: Clock;
@@ -48,6 +49,7 @@ export class Game {
         this.seedCurrent = JSON.stringify(g);
         this.ueActive = false;
         this.location = null;
+        this.lastLocation = null;
         this.pc = new Character();
         this.godshand = 0;
         this.clock = new Clock(expert);

@@ -5,7 +5,7 @@ import { expect } from "chai";
 import "mocha";
 
 import { interpret } from "xstate";
-import { ueMachine, collapseState, NestedState } from "../src/index";
+import { ueMachine } from "../src/index";
 import { Game } from "../src/Game";
 import { GameConstants } from "../src/Constants";
 import { Errors } from "../src/Error";
@@ -37,7 +37,7 @@ describe("State Machine: Searching", () => {
         expect(() => s.send("SEARCH", {location: 1})).to.not.throw();
         // s.send("SEARCH", {location: 1});
         expect(s.state.context.location).to.equal(1);
-        expect(collapseState(s.state.value as NestedState)).to.equal("searching.assigning.waiting");
+        expect(s.state.matches("searching.assigning.waiting")).to.be.true;
     });
 
     it ("Field is properly initialized", () => {
@@ -54,7 +54,7 @@ describe("State Machine: Searching", () => {
         expect(pad.interrupts).to.be.empty;
         expect(pad.statuses).to.be.empty;
         expect(pad.locations).to.deep.equal([null,null,null,null,null,null,null,null]);
-        expect(collapseState(s.state.value as NestedState)).to.equal("searching.assigning.waiting");
+        expect(s.state.matches("searching.assigning.waiting")).to.be.true;
 
         // Seal of Balance interrupt
         c = new Game("testing");
@@ -63,7 +63,7 @@ describe("State Machine: Searching", () => {
         s.start();
         s.send("SEARCH", {location: 1});
         pad = s.state.context.scratch as SearchState;
-        expect(collapseState(s.state.value as NestedState)).to.equal("searching.interruptingSetup");
+        expect(s.state.matches("searching.interruptingSetup")).to.be.true;
         expect(pad).to.not.be.undefined;
         expect(pad.trackerpos).to.equal(0);
         expect(pad.die1).to.be.undefined;
@@ -81,7 +81,7 @@ describe("State Machine: Searching", () => {
         // Seal of Balance resolved true
         // s.send("RESOLVE", {resolutions: [{name: GameConstants.SealOfBalance, resolution: true}]});
         pad = s.state.context.scratch as SearchState;
-        expect(collapseState(s.state.value as NestedState)).to.equal("searching.assigning.waiting");
+        expect(s.state.matches("searching.assigning.waiting")).to.be.true;
         expect(pad.die1).to.equal(2);
         expect(pad.die2).to.equal(4);
         expect(pad.interrupts).to.be.empty;
@@ -95,7 +95,7 @@ describe("State Machine: Searching", () => {
         s.send("SEARCH", {location: 1});
         s.send("RESOLVE", {resolutions: [{name: GameConstants.SealOfBalance, resolution: false}]});
         pad = s.state.context.scratch as SearchState;
-        expect(collapseState(s.state.value as NestedState)).to.equal("searching.assigning.waiting");
+        expect(s.state.matches("searching.assigning.waiting")).to.be.true;
         expect(pad.die1).to.equal(2);
         expect(pad.die2).to.equal(4);
         expect(pad.interrupts).to.be.empty;
@@ -125,7 +125,7 @@ describe("State Machine: Searching", () => {
         expect(pad.die1).to.equal(2);
         expect(pad.die2).to.be.undefined;
         expect(pad.locations).to.deep.equal([null,4,null,null,null,null,null,null]);
-        expect(collapseState(s.state.value as NestedState)).to.equal("searching.assigning.waiting");
+        expect(s.state.matches("searching.assigning.waiting")).to.be.true;
 
         // Valid second command
         expect(() => s.send("ASSIGN", {value: 2, location: "Z"})).to.not.throw();
@@ -134,7 +134,7 @@ describe("State Machine: Searching", () => {
         expect(pad.die1).to.equal(4);
         expect(pad.die2).to.equal(3);
         expect(pad.locations).to.deep.equal([null,4,null,null,null,null,null,2]);
-        expect(collapseState(s.state.value as NestedState)).to.equal("searching.assigning.waiting");
+        expect(s.state.matches("searching.assigning.waiting")).to.be.true;
 
         // Fill up the pad and make sure it transitions correctly
         expect(() => s.send("ASSIGN", {value: 4, location: "Y"})).to.not.throw();
@@ -144,7 +144,7 @@ describe("State Machine: Searching", () => {
         pad = s.state.context.scratch as SearchState;
         expect(pad.results).to.not.be.undefined;
         expect(pad.results![0]).to.equal(1);
-        expect(collapseState(s.state.value as NestedState)).to.equal("searching.waiting");
+        expect(s.state.matches("searching.waiting")).to.be.true;
     });
 
     it("Pre-resolution interrupts are identified correctly", () => {
@@ -164,7 +164,7 @@ describe("State Machine: Searching", () => {
         expect(pad.results).to.not.be.undefined;
         expect(pad.results![0]).to.equal(14);
         expect(pad.interrupts).to.deep.equal([GameConstants.DowsingRod]);
-        expect(collapseState(s.state.value as NestedState)).to.equal("searching.resolving.interruptingSearch");
+        expect(s.state.matches("searching.resolving.interruptingSearch")).to.be.true;
 
         // With Good Fortune
         c = new Game("testing");
@@ -181,7 +181,7 @@ describe("State Machine: Searching", () => {
         pad = s.state.context.scratch as SearchState;
         expect(pad).to.not.be.undefined;
         expect(pad.interrupts).to.deep.equal([GameConstants.GoodFortune]);
-        expect(collapseState(s.state.value as NestedState)).to.equal("searching.resolving.interruptingSearch");
+        expect(s.state.matches("searching.resolving.interruptingSearch")).to.be.true;
 
         // With Hermetic Mirror
         c = new Game("testing");
@@ -198,7 +198,7 @@ describe("State Machine: Searching", () => {
         pad = s.state.context.scratch as SearchState;
         expect(pad).to.not.be.undefined;
         expect(pad.interrupts).to.deep.equal([GameConstants.HermeticMirror]);
-        expect(collapseState(s.state.value as NestedState)).to.equal("searching.resolving.interruptingSearch");
+        expect(s.state.matches("searching.resolving.interruptingSearch")).to.be.true;
 
         // With Scrying Lens
         c = new Game("testing");
@@ -215,7 +215,7 @@ describe("State Machine: Searching", () => {
         pad = s.state.context.scratch as SearchState;
         expect(pad).to.not.be.undefined;
         expect(pad.interrupts).to.deep.equal([GameConstants.ScryingLens]);
-        expect(collapseState(s.state.value as NestedState)).to.equal("searching.resolving.interruptingSearch");
+        expect(s.state.matches("searching.resolving.interruptingSearch")).to.be.true;
 
         // Most of them at the same time
         c = new Game("VkKCBpYL1c");
@@ -237,7 +237,7 @@ describe("State Machine: Searching", () => {
         expect(pad.results).to.not.be.undefined;
         expect(pad.results![0]).to.equal(14);
         expect(pad.interrupts).to.deep.equal([GameConstants.DowsingRod, GameConstants.GoodFortune, GameConstants.HermeticMirror]);
-        expect(collapseState(s.state.value as NestedState)).to.equal("searching.resolving.interruptingSearch");
+        expect(s.state.matches("searching.resolving.interruptingSearch")).to.be.true;
     });
 
     it("Pre-resolution interrupts resolve correctly", () => {
@@ -258,7 +258,7 @@ describe("State Machine: Searching", () => {
         expect(pad.results).to.not.be.undefined;
         expect(pad.results![0]).to.equal(102);
         expect(pad.interrupts).to.deep.equal([GameConstants.GoodFortune, GameConstants.HermeticMirror]);
-        expect(collapseState(s.state.value as NestedState)).to.equal("searching.resolving.interruptingSearch");
+        expect(s.state.matches("searching.resolving.interruptingSearch")).to.be.true;
 
         // First subtract 11 to throw error
         expect(() => s.send("RESOLVE", {resolutions: [{name: GameConstants.GoodFortune, resolution: -11}]})).to.throw(Errors.RESOLUTION_INVALID);
@@ -277,7 +277,7 @@ describe("State Machine: Searching", () => {
         pad = s.state.context.scratch as SearchState;
         expect(pad.results![0]).to.equal(99);
         expect(pad.interrupts).to.deep.equal([GameConstants.DowsingRod]);
-        expect(collapseState(s.state.value as NestedState)).to.equal("searching.resolving.interruptingSearch");
+        expect(s.state.matches("searching.resolving.interruptingSearch")).to.be.true;
 
         // Trigger Dowsing Rod
         expect(() => s.send("RESOLVE", {resolutions: [{name: GameConstants.DowsingRod, resolution: true}]})).to.not.throw();
@@ -285,7 +285,7 @@ describe("State Machine: Searching", () => {
         expect(pad.results![0]).to.equal(1);
         expect(pad.interrupts).to.be.empty;
         expect(s.state.context.pc.hasArtifact(GameConstants.SealOfBalance)).to.be.true;
-        expect(collapseState(s.state.value as NestedState)).to.equal("searching.waiting");
+        expect(s.state.matches("searching.waiting")).to.be.true;
 
         // Ensure ignored interrupts don't get picked up again
         c = new Game("Jl3rgvFMkL"); // 342141 = 243 141
@@ -305,9 +305,9 @@ describe("State Machine: Searching", () => {
         expect(pad.results).to.not.be.undefined;
         expect(pad.results![0]).to.equal(102);
         expect(pad.interrupts).to.deep.equal([GameConstants.GoodFortune, GameConstants.HermeticMirror]);
-        expect(collapseState(s.state.value as NestedState)).to.equal("searching.resolving.interruptingSearch");
+        expect(s.state.matches("searching.resolving.interruptingSearch")).to.be.true;
         s.send("RESOLVE", {resolutions: [{name: GameConstants.HermeticMirror, resolution: false}, {name: GameConstants.GoodFortune, resolution: false}]})
-        expect(collapseState(s.state.value as NestedState)).to.equal("searching.fighting.settingup");
+        expect(s.state.matches("searching.fighting.settingup")).to.be.true;
     });
 
     it("Different results resolve correctly", () => {
@@ -322,11 +322,10 @@ describe("State Machine: Searching", () => {
         s.send("ASSIGN", {value: 1, location: "X"});
         s.send("ASSIGN", {value: 4, location: "Y"});
         s.send("ASSIGN", {value: 1, location: "Z"});
-        expect(collapseState(s.state.value as NestedState)).to.equal("searching.fighting.settingup");
-        let pad: FightState | SearchState;
-        pad = s.state.context.scratch as FightState;
-        expect(pad).to.not.be.undefined;
-        expect(pad.encounter.level).to.equal(1);
+        expect(s.state.matches("searching.fighting.settingup")).to.be.true;
+        let fpad = s.state.context.scratch as FightState;
+        expect(fpad).to.not.be.undefined;
+        expect(fpad.encounter.level).to.equal(1);
 
         c = new Game("Jl3rgvFMkL"); // 342141 = 243 141
         s = interpret(ueMachine.withContext(c));
@@ -338,10 +337,10 @@ describe("State Machine: Searching", () => {
         s.send("ASSIGN", {value: 1, location: "A"});
         s.send("ASSIGN", {value: 4, location: "B"});
         s.send("ASSIGN", {value: 1, location: "C"});
-        expect(collapseState(s.state.value as NestedState)).to.equal("searching.fighting.settingup");
-        pad = s.state.context.scratch as FightState;
-        expect(pad).to.not.be.undefined;
-        expect(pad.encounter.level).to.equal(2);
+        expect(s.state.matches("searching.fighting.settingup")).to.be.true;
+        fpad = s.state.context.scratch as FightState;
+        expect(fpad).to.not.be.undefined;
+        expect(fpad.encounter.level).to.equal(2);
 
         // Gaining components
         c = new Game("VkKCBpYL1c"); // 155453 = 545 531
@@ -355,11 +354,11 @@ describe("State Machine: Searching", () => {
         s.send("ASSIGN", {value: 5, location: "c"});
         s.send("ASSIGN", {value: 3, location: "y"});
         s.send("RESOLVE", {resolutions: [{name: GameConstants.DowsingRod, resolution: false}]});
-        expect(collapseState(s.state.value as NestedState)).to.equal("searching.waiting");
-        pad = s.state.context.scratch as SearchState;
-        expect(pad).to.not.be.undefined;
-        expect(pad.results).to.not.be.undefined;
-        expect(pad.results![0]).to.equal(14);
+        expect(s.state.matches("searching.waiting")).to.be.true;
+        const spad = s.state.context.scratch as SearchState;
+        expect(spad).to.not.be.undefined;
+        expect(spad.results).to.not.be.undefined;
+        expect(spad.results![0]).to.equal(14);
         expect(s.state.context.pc.components).to.deep.include({name: GameConstants.Silver, count: 1});
 
         // Gaining inactive artifact
@@ -378,7 +377,7 @@ describe("State Machine: Searching", () => {
         s.send("RESOLVE", {resolutions: [{name: GameConstants.GoodFortune, resolution: -1}]});
         s.send("RESOLVE", {resolutions: [{name: GameConstants.HermeticMirror, resolution: 2}]});
         s.send("RESOLVE", {resolutions: [{name: GameConstants.DowsingRod, resolution: true}]});
-        expect(collapseState(s.state.value as NestedState)).to.equal("searching.waiting");
+        expect(s.state.matches("searching.waiting")).to.be.true;
         expect(s.state.context.pc.artifacts).to.deep.include({name: GameConstants.SealOfBalance, active: false, used: false});
 
         // Gaining inactive artifact when you already have it
@@ -398,7 +397,7 @@ describe("State Machine: Searching", () => {
         s.send("RESOLVE", {resolutions: [{name: GameConstants.GoodFortune, resolution: -1}]});
         s.send("RESOLVE", {resolutions: [{name: GameConstants.HermeticMirror, resolution: 2}]});
         s.send("RESOLVE", {resolutions: [{name: GameConstants.DowsingRod, resolution: true}]});
-        expect(collapseState(s.state.value as NestedState)).to.equal("searching.waiting");
+        expect(s.state.matches("searching.waiting")).to.be.true;
         expect(s.state.context.pc.artifacts).to.deep.include({name: GameConstants.SealOfBalance, active: false, used: false});
         expect(s.state.context.pc.components).to.deep.include({name: GameConstants.Silver, count: 1});
 
@@ -418,7 +417,7 @@ describe("State Machine: Searching", () => {
         s.send("RESOLVE", {resolutions: [{name: GameConstants.GoodFortune, resolution: -3}]});
         s.send("RESOLVE", {resolutions: [{name: GameConstants.DowsingRod, resolution: true}]});
         s.send("RESOLVE", {resolutions: [{name: GameConstants.HermeticMirror, resolution: 1}]});
-        expect(collapseState(s.state.value as NestedState)).to.equal("searching.waiting");
+        expect(s.state.matches("searching.waiting")).to.be.true;
         expect(s.state.context.pc.artifacts).to.deep.include({name: GameConstants.SealOfBalance, active: true, used: false});
 
         // Gaining active artifact when you already have it
@@ -438,7 +437,7 @@ describe("State Machine: Searching", () => {
         s.send("RESOLVE", {resolutions: [{name: GameConstants.GoodFortune, resolution: -3}]});
         s.send("RESOLVE", {resolutions: [{name: GameConstants.DowsingRod, resolution: true}]});
         s.send("RESOLVE", {resolutions: [{name: GameConstants.HermeticMirror, resolution: 1}]});
-        expect(collapseState(s.state.value as NestedState)).to.equal("searching.waiting");
+        expect(s.state.matches("searching.waiting")).to.be.true;
         expect(s.state.context.pc.artifacts).to.deep.include({name: GameConstants.SealOfBalance, active: false, used: false});
         expect(s.state.context.pc.components).to.deep.include({name: GameConstants.Silver, count: 2});
     });
