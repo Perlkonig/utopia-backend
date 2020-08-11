@@ -1,5 +1,7 @@
+import { GameConstants } from "./Constants";
+
 export interface Tool {
-    name: string;
+    name: GameConstants;
     active: boolean;
 }
 
@@ -8,7 +10,7 @@ export interface Artifact extends Tool {
 }
 
 export interface Component {
-    name: string;
+    name: GameConstants;
     count: number;
 }
 
@@ -24,15 +26,15 @@ export class Character {
         this.components = [];
         this.tools = [
             {
-                "name": "Paralysis Wand",
+                "name": GameConstants.ParalysisWand,
                 "active": true
             },
             {
-                "name": "Dowsing Rod",
+                "name": GameConstants.DowsingRod,
                 "active": true
             },
             {
-                "name": "Focus Charm",
+                "name": GameConstants.FocusCharm,
                 "active": true
             },
         ],
@@ -70,7 +72,7 @@ export class Character {
         return num;
     }
 
-    toolIsActive(search: string): boolean {
+    toolIsActive(search: GameConstants): boolean {
         for (const tool of this.tools) {
             if (tool.name === search) {
                 return tool.active;
@@ -79,7 +81,7 @@ export class Character {
         return false;
     }
 
-    hasArtifact(search: string): boolean {
+    hasArtifact(search: GameConstants): boolean {
         for (const artifact of this.artifacts) {
             if (artifact.name === search) {
                 return true;
@@ -88,7 +90,7 @@ export class Character {
         return false;
     }
 
-    artifactIsActive(search: string): boolean {
+    artifactIsActive(search: GameConstants): boolean {
         for (const artifact of this.artifacts) {
             if (artifact.name === search) {
                 return artifact.active;
@@ -97,7 +99,7 @@ export class Character {
         return false;
     }
 
-    fetchArtifact(search: string): Artifact | undefined {
+    fetchArtifact(search: GameConstants): Artifact | undefined {
         for (const artifact of this.artifacts) {
             if (artifact.name === search) {
                 return artifact;
@@ -106,7 +108,7 @@ export class Character {
         return;
     }
 
-    hasTreasure(search: string): boolean {
+    hasTreasure(search: GameConstants): boolean {
         for (const treasure of this.treasures) {
             if (treasure.name === search) {
                 return true;
@@ -115,7 +117,7 @@ export class Character {
         return false;
     }
 
-    hasComponent(search: string): boolean {
+    hasComponent(search: GameConstants): boolean {
         for (const c of this.components) {
             if (c.name === search) {
                 if (c.count > 0) {
@@ -126,7 +128,18 @@ export class Character {
         return false;
     }
 
-    giveComponent(name: string, count: number = 1) {
+    componentCount(search: GameConstants): number {
+        for (const c of this.components) {
+            if (c.name === search) {
+                if (c.count > 0) {
+                    return c.count;
+                }
+            }
+        }
+        return 0;
+    }
+
+    giveComponent(name: GameConstants, count: number = 1) {
         let exists = false;
         for (const c of this.components) {
             if (c.name === name) {
@@ -139,11 +152,14 @@ export class Character {
             }
         }
         if (! exists) {
+            if (count > 4) {
+                count = 4;
+            }
             this.components.push({name, count});
         }
     }
 
-    takeComponent(name: string, count: number = 1): boolean {
+    takeComponent(name: GameConstants, count: number = 1): boolean {
         for (const c of this.components) {
             if (c.name === name) {
                 if (c.count >= count) {

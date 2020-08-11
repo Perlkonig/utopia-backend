@@ -9,8 +9,9 @@ import { Character } from './Character';
 import { Clock } from './Clock';
 import { ActivateState, FightState, SearchState, LinkState } from './States';
 import { Errors } from "./Error";
+import { GameConstants } from "./Constants";
 
-function genRandomSeed() {
+function genRandomSeed(): string {
     const set = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/".split('');
     const rand = distrib.mutBase64Bytes(10)(Math);
     let txtseed = "";
@@ -31,7 +32,7 @@ export class Game {
     log: string[];
     links: Link[];
     wastebasket: number[];
-    events: string[][];
+    events: GameConstants[][];
     ueActive: boolean;
     error?: Errors;
 
@@ -69,5 +70,15 @@ export class Game {
             }
         });
         return num;
+    }
+
+    hasEvent(event: GameConstants, location?: number | null): boolean {
+        if (location === undefined) {
+            location = this.location;
+        }
+        if (location === null) {
+            return false;
+        }
+        return (this.events[location-1].indexOf(event) >= 0);
     }
 }

@@ -1,31 +1,33 @@
+import { GameConstants } from "./Constants";
+
 export interface Link {
-    readonly prereq?: string;
-    readonly component: string;
+    readonly prereq?: GameConstants;
+    readonly component: GameConstants;
     value?: number;
 }
 
 export const Links: Link[] = [
     {
-        "component": "Silver"
+        "component": GameConstants.Silver
     },
     {
-        "prereq": "Seal of Balance",
-        "component": "Quartz"
+        "prereq": GameConstants.SealOfBalance,
+        "component": GameConstants.Quartz
     },
     {
-        "prereq": "Void Gate",
-        "component": "Silica"
+        "prereq": GameConstants.VoidGate,
+        "component": GameConstants.Silica
     },
     {
-        "prereq": "Scrying Lens",
-        "component": "Lead"
+        "prereq": GameConstants.ScryingLens,
+        "component": GameConstants.Lead
     },
     {
-        "prereq": "Crystal Battery",
-        "component": "Gum"
+        "prereq": GameConstants.CrystalBattery,
+        "component": GameConstants.Gum
     },
     {
-        "prereq": "Hermetic Mirror",
-        "component": "Wax"
+        "prereq": GameConstants.HermeticMirror,
+        "component": GameConstants.Wax
     },
 ];
