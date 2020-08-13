@@ -5,7 +5,7 @@ import { LinkState } from './Link';
 import { GameConstants } from '../../src/Constants';
 
 export interface Resolution {
-    name: GameConstants,
+    name: GameConstants;
     resolution: boolean | number;
 }
 

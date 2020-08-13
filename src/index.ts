@@ -30,7 +30,7 @@ interface StateSchema {
                         resolving: {};
                         gainingArtifact: {};
                         gainingComponent: {};
-                    }
+                    };
                 };
                 fighting: {
                     states: {
@@ -41,16 +41,24 @@ interface StateSchema {
                                 settingup: {};
                                 interruptingFight: {};
                                 resolving: {};
-                            }
-                        }
-                    }
+                                looting: {};
+                            };
+                        };
+                    };
                 };
-                waiting: {};
-            }
+                idle: {
+                    states: {
+                        waiting: {};
+                        leaving: {};
+                        camping: {};
+                    };
+                };
+            };
         };
         activating: {};
         linking: {};
         final: {};
+        unconscious: {};
         gameover: {};
     };
 }
@@ -58,14 +66,21 @@ interface StateSchema {
 type SearchEvent = { type: "SEARCH", location: number };
 type ResolveEvent = { type: "RESOLVE", resolutions: Resolution[] };
 type AssignEvent = { type: "ASSIGN", value: number, location: string };
+type AgainEvent = { type: "AGAIN" };
+type LeaveEvent = { type: "LEAVE" };
+type CampEvent = { type: "CAMP", days: number };
 
 export type Events =
     | SearchEvent
     | ResolveEvent
     | AssignEvent
-    | { type: "AGAIN" };
+    | AgainEvent
+    | LeaveEvent
+    | CampEvent;
 
 const setSearchStage = assign<Game, Events>((context, event) => {
+    console.log("Setting the stage");
+    console.log(event);
     event = event as SearchEvent;
     let tracker = 0;
     if (locationIDs.indexOf(event.location) >= 0) {
@@ -130,8 +145,10 @@ const setFightStage = assign<Game, Events>((context, event) => {
 
     const localstate = {
         ...context.scratch as SearchState,
+        level: lvl,
         encounter: Locations[context.location - 1].encounters[lvl-1],
-        hitrange: HitRanges[lvl-1]
+        hitrange: HitRanges[lvl-1],
+        defeated: false
     } as FightState;
     context.log.push(`You encounter ${localstate.encounter.article} ${localstate.encounter.name} (level ${localstate.encounter.level})!`);
 
@@ -201,6 +218,7 @@ const resolveInterrupt = assign<Game, Events>((context, event) => {
                 }
                 context.log.push("You choose to use " + x.name);
                 pad.statuses.push(x);
+                context.pc.useItem(x.name);
             } else {
                 pad.ignored.push(x.name);
             }
@@ -299,7 +317,7 @@ const findSearchInterrupts = assign<Game, Events>((context, event) => {
     if (pad.results === undefined) {
         throw new Error("Machine is in an invalid state. Dice field is not properly initialized.");
     }
-    context.scratch.interrupts = [];
+    pad.interrupts = [];
     const game: Game = Object.assign(new Game(), context);
     // Dowsing rod
     if ( (context.pc.toolIsActive(GameConstants.DowsingRod)) && (pad.results[0] > 10) && (pad.results[0] < 100) ) {
@@ -328,6 +346,23 @@ const findSearchInterrupts = assign<Game, Events>((context, event) => {
 
     if (pad.interrupts.length > 0) {
         context.log.push("Some interrupts need to be resolved:\n" + pad.interrupts.join("\n"));
+    }
+});
+
+const findFightInterrupts = assign<Game, Events>((context, event) => {
+    if (context.scratch === undefined) {
+        throw new Error("Machine is in an invalid state. Dice field is not properly initialized.");
+    }
+    const pad = context.scratch as FightState;
+    if (pad.results === undefined) {
+        throw new Error("Machine is in an invalid state. Dice field is not properly initialized.");
+    }
+    pad.interrupts = [];
+    // Dowsing rod
+    if (context.pc.toolIsActive(GameConstants.ParalysisWand)){
+        if ( (pad.statuses.findIndex((x) => x.name === GameConstants.ParalysisWand) < 0) && (pad.ignored.indexOf(GameConstants.ParalysisWand) < 0) ) {
+            pad.interrupts.push(GameConstants.ParalysisWand);
+        }
     }
 });
 
@@ -374,6 +409,119 @@ const grantComponent = assign<Game, Events>((context, event) => {
     context.log.push("You found some " + comp + ".");
 });
 
+const resolveFight = assign<Game, Events>((context, event) => {
+    if (context.scratch === undefined) {
+        throw new Error("Machine is in an invalid state. Dice field is not properly initialized.");
+    }
+    const pad = context.scratch as FightState;
+    if ( (pad.die1 === undefined) || (pad.die2 === undefined) ) {
+        throw new Error("Machine is in an invalid state. Dice field is not properly initialized.");
+    }
+    let dmg = 0;
+    let win = false;
+    for (let die of [pad.die1, pad.die2]) {
+        if (pad.statuses.findIndex((x) => x.name === GameConstants.ParalysisWand) >= 0) {
+            context.log.push("Your " + GameConstants.ParalysisWand + ` turns the ${die} into a ${die+2}.`);
+            die += 2;
+        }
+        if ( (die >= pad.hitrange.hitMOBmin) && (die <= pad.hitrange.hitMOBmax) ) {
+            dmg += 1
+        }
+        if ( (die >= pad.hitrange.hitPCmin) && (die <= pad.hitrange.hitPCmax) ) {
+            win = true;
+        }
+    }
+    if (dmg > 0) {
+        context.log.push(`You're hit! You take ${dmg} points of damage.`);
+        context.pc.harm(dmg);
+    }
+    if (win) {
+        context.log.push("You are victorious!");
+        pad.defeated = true;
+    }
+
+    // Clear Paralysis Wand from `ignored`
+    const idx = pad.ignored.indexOf(GameConstants.ParalysisWand);
+    if (idx >= 0) {
+        pad.ignored.splice(idx, 1);
+    }
+});
+
+const lootCorpse = assign<Game, Events>((context, event) => {
+    if (context.location === null) {
+        throw new Error("Machine is in an invalid state. You can't fight creatures outside of the six areas.");
+    }
+    if (context.scratch === undefined) {
+        throw new Error("Machine is in an invalid state. Dice field is not properly initialized.");
+    }
+    const pad = context.scratch as FightState;
+    if ( (pad.die1 === undefined) || (pad.die2 === undefined) ) {
+        throw new Error("Machine is in an invalid state. Dice field is not properly initialized.");
+    }
+
+    // Hydrate randomizer
+    const g = uhe.mutFromPlain(JSON.parse(context.seedCurrent))
+    if (g === undefined) {
+        throw new Error("Error rehydrating the randomizer.")
+    }
+    // Roll the die
+    const die = context.f(g);
+    // Serialize randomizer
+    context.seedCurrent = JSON.stringify(g);
+
+    context.log.push(`You roll a ${die}.`);
+    if (die <= pad.encounter.level) {
+        const treas = Locations[context.location - 1].treasure;
+        if ( (pad.encounter.level < 5) || (context.pc.hasTreasure(treas)) ) {
+            const comp = Locations[context.location - 1].component;
+            context.pc.giveComponent(comp);
+            context.log.push("You found some " + comp + ".");
+        } else {
+            context.log.push(`You found a legendary treasure: ${treas}!`);
+            context.pc.treasures.push({name: treas, active: true});
+        }
+    } else {
+        context.log.push("You found nothing.");
+    }
+});
+
+const tickTracker = assign<Game, Events>((context, event) => {
+    if (context.location === null) {
+        throw new Error("Machine is in an invalid state. You can't search outside of the six areas.");
+    }
+    if (context.scratch === undefined) {
+        throw new Error("Machine is in an invalid state. Dice field is not properly initialized.");
+    }
+    const pad = context.scratch as SearchState;
+    const track = Locations[context.location - 1].tracker;
+    if (track[pad.trackerpos] === -1) {
+        const game: Game = Object.assign(new Game(), context);
+        game.tick();
+    }
+    pad.trackerpos++;
+});
+
+const convalesce = assign<Game, Events>((context, event) => {
+    if (context.pc.hp === 0) {
+        context.pc.hp = context.pc.maxhp;
+        context.scratch = undefined;
+        const game: Game = Object.assign(new Game(), context);
+        game.tick(context.pc.maxhp);
+    }
+});
+
+const leaveArea = assign<Game, Events>((context, event) => {
+    context.scratch = undefined;
+    context.location = null;
+});
+
+const camp = assign<Game, Events>((context, event) => {
+    event = event as CampEvent
+    context.pc.heal(event.days);
+    const game: Game = Object.assign(new Game(), context);
+    game.tick(event.days);
+});
+
 export const ueMachine = Machine<Game, StateSchema, Events>(
     {
         id: "root",
@@ -394,7 +542,6 @@ export const ueMachine = Machine<Game, StateSchema, Events>(
                 id: "searching",
                 initial: "settingup",
                 entry: [setSearchStage],
-                exit: ["leaveArea"],
                 states: {
                     settingup: {
                         always: [
@@ -483,49 +630,114 @@ export const ueMachine = Machine<Game, StateSchema, Events>(
                             },
                             gainingArtifact: {
                                 entry: [grantArtifact],
-                                always: ["#waiting"]
+                                always: ["#searching.idle"]
                             },
                             gainingComponent: {
                                 entry: [grantComponent],
-                                always: ["#waiting"]
+                                always: ["#searching.idle"]
                             }
                         }
                     },
                     fighting: {
                         id: "fighting",
                         initial: "settingup",
+                        entry: [setFightStage],
                         states: {
                             settingup: {
-                                entry: [setFightStage]
-
+                                always: [
+                                    {
+                                        cond: "moonlaceActivated",
+                                        target: "#searching.idle"
+                                    },
+                                    {
+                                        cond: "interruptsResolved",
+                                        target: "rolling"
+                                    },
+                                    {
+                                        target: "interruptingSetup"
+                                    }
+                                ]
                             },
                             interruptingSetup: {
-
+                                exit: [resolveInterrupt],
+                                on: {
+                                    RESOLVE: "settingup"
+                                }
                             },
                             rolling: {
+                                id: "fighting.rolling",
                                 initial: "settingup",
+                                entry: [rollDice],
                                 states: {
                                     settingup: {
-
+                                        entry: [findFightInterrupts],
+                                        always: [
+                                            {
+                                                cond: "interruptsResolved",
+                                                target: "resolving"
+                                            },
+                                            {
+                                                target: "interruptingFight"
+                                            }
+                                        ]
                                     },
                                     interruptingFight: {
-
+                                        exit: [resolveInterrupt],
+                                        on: {
+                                            RESOLVE: "settingup"
+                                        }
                                     },
                                     resolving: {
-
+                                        entry: [resolveFight],
+                                        always: [
+                                            {
+                                                cond: "unconscious",
+                                                target: "#unconscious"
+                                            },
+                                            {
+                                                cond: "creatureLives",
+                                                target: "#fighting.rolling"
+                                            },
+                                            {
+                                                target: "looting"
+                                            }
+                                        ]
+                                    },
+                                    looting: {
+                                        entry: [lootCorpse],
+                                        always: ["#searching.idle"]
                                     }
                                 }
                             }
                         }
                     },
-                    waiting: {
-                        id: "waiting",
-                        on: {
-                            AGAIN: {
-                                target: "#searching",
-                                internal: true
+                    idle: {
+                        id: "searching.idle",
+                        entry: [tickTracker],
+                        initial: "waiting",
+                        states: {
+                            waiting: {
+                                on: {
+                                    AGAIN: {
+                                        target: "#searching"
+                                    },
+                                    LEAVE: {
+                                        target: "leaving"
+                                    },
+                                    CAMP: {
+                                        target: "camping"
+                                    }
+                                }
+                            },
+                            leaving: {
+                                entry: [leaveArea],
+                                always: ["#root"]
+                            },
+                            camping: {
+                                entry: [camp],
+                                always: ["waiting"]
                             }
-                        },
+                        }
                     }
                 }
             },
@@ -537,6 +749,11 @@ export const ueMachine = Machine<Game, StateSchema, Events>(
             },
             final: {
 
+            },
+            unconscious: {
+                id: "unconscious",
+                entry: [convalesce],
+                always: ["#root"]
             },
             gameover: {
                 type: "final"
@@ -596,6 +813,29 @@ export const ueMachine = Machine<Game, StateSchema, Events>(
                     return true;
                 }
                 return false;
+            },
+            moonlaceActivated: (context, event) => {
+                if (context.scratch === undefined) {
+                    throw new Error("Machine is in an invalid state. Dice field is not properly initialized.");
+                }
+                const pad = context.scratch as FightState;
+                if (pad.statuses.findIndex((x) => x.name === GameConstants.ShimmeringMoonlace) >= 0) {
+                    return true;
+                }
+                return false;
+            },
+            creatureLives: (context, event) => {
+                if (context.scratch === undefined) {
+                    throw new Error("Machine is in an invalid state. Dice field is not properly initialized.");
+                }
+                const pad = context.scratch as FightState;
+                if (pad.defeated === undefined) {
+                    throw new Error("Machine is in an invalid state. Dice field is not properly initialized.");
+                }
+                return !pad.defeated;
+            },
+            unconscious: (context, event) => {
+                return (context.pc.hp <= 0);
             }
         }
     }

@@ -6,10 +6,10 @@ import { immerable } from "immer";
 // import { HitRanges } from "./Encounter";
 import { Link, Links } from "./Link";
 import { Character } from './Character';
-import { Clock } from './Clock';
+import { Clock, TickResult } from './Clock';
 import { ActivateState, FightState, SearchState, LinkState } from './States';
-import { Errors } from "./Error";
-import { GameConstants } from "./Constants";
+import { GameConstants, setEvents } from "./Constants";
+import { Locations } from "./Location";
 
 function genRandomSeed(): string {
     const set = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/".split('');
@@ -29,13 +29,13 @@ export class Game {
     pc: Character;
     godshand: number;
     clock: Clock;
-    gameover: boolean;
     log: string[];
     links: Link[];
     wastebasket: number[];
     events: GameConstants[][];
     ueActive: boolean;
-    error?: Errors;
+    gameover: boolean;
+    score?: number;
 
     readonly f = distrib.mutI32Between(1)(7);
 
@@ -62,6 +62,34 @@ export class Game {
 
     dump(): string {
         return JSON.stringify(this);
+    }
+
+    tick(days: number = 1) {
+        for (let i = 0; i < days; i++) {
+            if (!this.gameover) {
+                const result = this.clock.tick();
+                if (result === TickResult.DOOM) {
+                    this.gameover = true;
+                } else if (result === TickResult.EVENT) {
+                    // Hydrate randomizer
+                    const g = uhe.mutFromPlain(JSON.parse(this.seedCurrent))
+                    if (g === undefined) {
+                        throw new Error("Error rehydrating the randomizer.")
+                    }
+
+                    // For each event, roll a die and assign
+                    this.events = [[], [], [], [], [], []];
+                    for (const evt of setEvents) {
+                        const die = this.f(g);
+                        this.events[die-1].push(evt);
+                        this.log.push(`The event ${evt} is now active in ${Locations[die-1].name}.`);
+                    }
+
+                    // Serialize randomizer
+                    this.seedCurrent = JSON.stringify(g);
+                }
+            }
+        }
     }
 
     numLinked(): number {

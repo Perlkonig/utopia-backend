@@ -80,4 +80,15 @@ describe("Character class", () => {
         expect(c.takeComponent(GameConstants.Quartz, 4)).to.be.true;
         expect(c.takeComponent(GameConstants.Quartz)).to.be.false;
     });
+
+    it ("HP functions work", () => {
+        const c = new Character();
+        expect(c.hp).to.equal(c.maxhp);
+        c.heal(5);
+        expect(c.hp).to.equal(c.maxhp);
+        c.harm(1);
+        expect(c.hp).to.equal(c.maxhp - 1);
+        c.heal(5);
+        expect(c.hp).to.equal(c.maxhp);
+    });
 });

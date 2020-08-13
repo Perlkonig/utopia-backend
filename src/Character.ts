@@ -1,4 +1,4 @@
-import { GameConstants } from "./Constants";
+import { GameConstants, setTools } from "./Constants";
 
 export interface Tool {
     name: GameConstants;
@@ -16,13 +16,15 @@ export interface Component {
 
 export class Character {
     hp: number;
+    maxhp: number;
     components: Component[];
     tools: Tool[];
     treasures: Tool[];
     artifacts: Artifact[];
 
     constructor() {
-        this.hp = 6;
+        this.maxhp = 6;
+        this.hp = this.maxhp;
         this.components = [];
         this.tools = [
             {
@@ -40,6 +42,36 @@ export class Character {
         ],
         this.treasures = [];
         this.artifacts =  [];
+    }
+
+    harm(dmg: number = 1) {
+        this.hp -= dmg;
+    }
+
+    heal(dmg: number = 1) {
+        this.hp += dmg;
+        if (this.hp > this.maxhp) {
+            this.hp = this.maxhp;
+        }
+    }
+
+    useItem(item: GameConstants) {
+        if (item === GameConstants.SealOfBalance) {
+            const idx = this.artifacts.findIndex((x) => x.name === item);
+            if (idx < 0) {
+                throw new Error("You tried to use an artifact you don't have.");
+            }
+            this.artifacts[idx].used = true;
+        } else if (setTools.indexOf(item) >= 0) {
+            const idx = this.tools.findIndex((x) => x.name === item);
+            if (idx < 0) {
+                throw new Error("You tried to use an tool you don't have.");
+            }
+            if (!this.tools[idx].active) {
+                throw new Error("This tool has already been used.");
+            }
+            this.tools[idx].active = false;
+        }
     }
 
     numInactiveArtifacts(): number {

@@ -25,3 +25,9 @@ export enum GameConstants {
     FleetingVisions = "Fleeting Visions",
     FoulWeather = "Foul Weather"
 }
+
+export const setTools = [GameConstants.ParalysisWand, GameConstants.DowsingRod, GameConstants.FocusCharm];
+export const setArtifacts = [GameConstants.SealOfBalance, GameConstants.HermeticMirror, GameConstants.VoidGate, GameConstants.GoldenChassis, GameConstants.ScryingLens, GameConstants.CrystalBattery];
+export const setTreasures = [GameConstants.IcePlate, GameConstants.BraceletOfIo, GameConstants.ShimmeringMoonlace, GameConstants.ScaleOfTheInfinityWurm, GameConstants.TheAncientRecord, GameConstants.TheMoltenShard];
+export const setEvents = [GameConstants.ActiveMonsters, GameConstants.GoodFortune, GameConstants.FleetingVisions, GameConstants.FoulWeather];
+export const setComponents = [GameConstants.Silver, GameConstants.Quartz, GameConstants.Silica, GameConstants.Gum, GameConstants.Wax, GameConstants.Lead];

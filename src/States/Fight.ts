@@ -5,4 +5,5 @@ import { Encounter, HitRange } from "../Encounter";
 export interface FightState extends SearchState {
     readonly encounter: Encounter;
     hitrange: HitRange;
+    defeated: boolean;
 }
