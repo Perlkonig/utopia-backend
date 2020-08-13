@@ -79,8 +79,6 @@ export type Events =
     | CampEvent;
 
 const setSearchStage = assign<Game, Events>((context, event) => {
-    console.log("Setting the stage");
-    console.log(event);
     event = event as SearchEvent;
     let tracker = 0;
     if (locationIDs.indexOf(event.location) >= 0) {
