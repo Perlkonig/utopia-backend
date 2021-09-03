@@ -30,7 +30,7 @@
   "license": "MIT",
   "dependencies": {
     "@xstate/immer": "^0.1.0",
-    "immer": "^6.0.3",
+    "immer": "^9.0.6",
     "replayable-random": "^0.4.1",
     "xstate": "^4.11.0"
   },
